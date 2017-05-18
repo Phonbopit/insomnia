@@ -1,20 +1,30 @@
 import BaseExtension from './base/base-extension';
 
 export default class Base64Extension extends BaseExtension {
-  getTagName () {
+  getName () {
     return 'base64';
+  }
+
+  getDescription () {
+    return 'encode or decode values';
   }
 
   getArguments () {
     return [
       {
-        name: 'action',
+        key: 'action',
+        label: 'Action',
         type: 'enum',
-        options: ['encode', 'decode']
+        options: [
+          {name: 'Encode', value: 'encode'},
+          {name: 'Decode', value: 'decode'}
+        ]
       },
       {
-        name: 'value',
-        type: 'string'
+        key: 'value',
+        label: 'Value',
+        type: 'string',
+        placeholder: 'My text'
       }
     ];
   }

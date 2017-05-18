@@ -1,45 +1,34 @@
 import React, {PropTypes, PureComponent} from 'react';
 import autobind from 'autobind-decorator';
 import Input from '../codemirror/one-line-editor';
-
-const TAGS = [
-  {name: `uuid 'v4'`},
-  {name: `uuid 'v1'`},
-  {name: `now 'ISO-8601'`},
-  {name: `now 'unix'`},
-  {name: `now 'millis'`},
-  {name: `base64 'encode'`, suffix: `, 'my string'`},
-  {name: `base64 'decode'`, suffix: `, 'bXkgc3RyaW5n'`}
-  // 'response'
-];
-
-const CUSTOM_TAG_VALUE = `{% custom 'tag' %}`;
+import * as templating from '../../../templating';
+import * as templateUtils from '../../../templating/utils';
 
 @autobind
 class TagEditor extends PureComponent {
   constructor (props) {
     super(props);
 
-    const inner = props.defaultValue
-      .replace(/\s*%}$/, '')
-      .replace(/^{%\s*/, '');
+    const activeTagData = templateUtils.tokenizeTag(props.defaultValue);
 
-    const value = `{% ${inner} %}`;
+    const defs = templating.getTagDefinitions();
+    const activeTagDefinition = defs.find(d => d.name === activeTagData.name);
+
     this.state = {
-      tags: TAGS,
-      value: value,
-      selectValue: value,
+      activeTagData,
+      activeTagDefinition,
       preview: '',
       error: ''
     };
   }
 
-  componentWillMount () {
-    this._update(this.state.value, true);
+  async componentWillMount () {
+    this._update(this.state.activeTagDefinition, this.state.activeTagData, true);
   }
 
   _handleChange (e) {
-    this._update(e.target.value, false, e.target.value);
+    const tagDefinition = templating.getTagDefinitions().find(d => d.name === e.target.value);
+    this._update(tagDefinition, false);
   }
 
   _setSelectRef (n) {
@@ -51,14 +40,26 @@ class TagEditor extends PureComponent {
     }, 100);
   }
 
-  async _update (value, noCallback = false, selectValue = null) {
+  async _update (tagDefinition, tagData, noCallback = false) {
     const {handleRender} = this.props;
 
     let preview = '';
     let error = '';
 
+    const activeTagData = tagData || {
+      name: tagDefinition.name,
+      args: tagDefinition.args.map(arg => {
+        if (arg.type === 'enum') {
+          return {type: 'string', value: arg.options[0].value};
+        } else {
+          return {type: 'string', value: ''};
+        }
+      })
+    };
+
     try {
-      preview = await handleRender(value, true);
+      const template = templateUtils.unTokenizeTag(activeTagData);
+      preview = await handleRender(template, true);
     } catch (err) {
       error = err.message;
     }
@@ -66,55 +67,109 @@ class TagEditor extends PureComponent {
     const isMounted = !!this._select;
     if (isMounted) {
       this.setState({
+        activeTagData,
         preview,
         error,
-        value,
-        selectValue: selectValue || this.state.selectValue
+        activeTagDefinition: tagDefinition
       });
     }
 
     // Call the callback if we need to
     if (!noCallback) {
-      this.props.onChange(value);
+      // this.props.onChange(value);
     }
   }
 
+  renderArgString (value, placeholder) {
+    return (
+      <Input
+        type="text"
+        defaultValue={value || ''}
+        placeholder={placeholder}
+        onChange={() => console.log('TODO string.onChange')}
+      />
+    );
+  }
+
+  renderArgEnum (value, options) {
+    return (
+      <select value={value} onChange={() => console.log('TODO enum.onChange')}>
+        {options.map(option => {
+          return (
+            <option key={option.value} value={option.value}>
+              {option.name}
+            </option>
+          );
+        })}
+      </select>
+    );
+  }
+
+  renderArgModel (value, modelType) {
+    // TODO: Somehow figure out how to fetch models
+    const docs = [];
+    return (
+      <select value={value} onChange={() => console.log('TODO model.onChange')}>
+        {docs.map(m => (
+          <option key={m._id} value={m._id}>{m.name}</option>
+        ))}
+        <option value="n/a">-- Select Item --</option>
+      </select>
+    );
+  }
+
+  renderArg (argDefinition, argData) {
+    let argInput;
+    const value = argData.value;
+
+    if (argDefinition.type === 'string') {
+      const {placeholder} = argDefinition;
+      argInput = this.renderArgString(value, placeholder);
+    } else if (argDefinition.type === 'enum') {
+      const {options} = argDefinition;
+      argInput = this.renderArgEnum(value, options);
+    } else if (argDefinition.type === 'model') {
+      const {model} = argDefinition;
+      argInput = this.renderArgModel(value, model);
+    } else {
+      return null;
+    }
+
+    return (
+      <div key={argDefinition.key} className="form-control form-control--outlined">
+        <label>
+          {argDefinition.label || argDefinition.key}
+          {argInput}
+        </label>
+      </div>
+    );
+  }
+
   render () {
-    const {error, value, preview, tags, selectValue} = this.state;
-    const isFound = !!tags.find(v => value === `{% ${v.name} %}`);
-    const isFlexible = value.indexOf('{% base64') === 0;
-    const isCustom = !isFound && !isFlexible;
+    const {error, preview, activeTagDefinition, activeTagData} = this.state;
 
     return (
       <div>
         <div className="form-control form-control--outlined">
-          <label>Template Function
+          <label>Function to Perform
             <select ref={this._setSelectRef}
                     onChange={this._handleChange}
-                    value={isCustom ? CUSTOM_TAG_VALUE : selectValue}>
-              {tags.map((t, i) => (
-                <option key={`${i}::${t.name}`} value={`{% ${t.name}${t.suffix || ''} %}`}>
-                  {t.name}
+                    value={activeTagDefinition.name}>
+              {templating.getTagDefinitions().map((tagDefinition, i) => (
+                <option key={`${i}::${tagDefinition.name}`} value={tagDefinition.name}>
+                  {tagDefinition.name} – {tagDefinition.description}
                 </option>
               ))}
-              <option value={`{% custom 'tag' %}`}>
+              <option value="n/a">
                 -- Custom --
               </option>
             </select>
           </label>
         </div>
-        {(!isFound || isFlexible) && (
-          <div className="form-control form-control--outlined">
-            <Input
-              key={selectValue}
-              forceEditor
-              mode="nunjucks"
-              type="text"
-              defaultValue={value}
-              onChange={this._update}
-            />
-          </div>
-        )}
+        {activeTagDefinition.args.map((argDefinition, i) => {
+          const argData = activeTagData.args[i] || {};
+          return this.renderArg(argDefinition, argData);
+        })}
         <div className="form-control form-control--outlined">
           <label>Live Preview
             {error

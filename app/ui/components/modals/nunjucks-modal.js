@@ -84,15 +84,15 @@ class NunjucksModal extends PureComponent {
 
     return (
       <Modal ref={this._setModalRef} onHide={this._handleModalHide} key={uniqueKey}>
-        <form onSubmit={this._handleSubmit}>
-          <ModalHeader>Edit {title}</ModalHeader>
-          <ModalBody className="pad" key={defaultTemplate}>
+        <ModalHeader>Edit {title}</ModalHeader>
+        <ModalBody className="pad" key={defaultTemplate}>
+          <form onSubmit={this._handleSubmit}>
             {editor}
-          </ModalBody>
-          <ModalFooter>
-            <button type="submit" className="btn">Done</button>
-          </ModalFooter>
-        </form>
+          </form>
+        </ModalBody>
+        <ModalFooter>
+          <button className="btn" onClick={this.hide}>Done</button>
+        </ModalFooter>
       </Modal>
     );
   }

@@ -6,30 +6,37 @@ import * as models from '../../models';
 import BaseExtension from './base/base-extension';
 
 export default class ResponseExtension extends BaseExtension {
-  getTagName () {
+  getName () {
     return 'response';
+  }
+
+  getDescription () {
+    return 'reference values from other requests';
   }
 
   getArguments () {
     return [
       {
-        name: 'field',
-        type: 'enum',
-        options: ['body']
-      },
-      {
-        name: 'request',
+        key: 'request',
+        label: 'Request (TODO)',
         type: 'model',
         model: 'Request'
       },
       {
-        name: 'query',
+        key: 'field',
+        label: 'Response Attribute',
+        type: 'enum',
+        options: [{name: 'Body', value: 'body'}]
+      },
+      {
+        key: 'query',
+        label: 'Filter (JSONPath or XPath)',
         type: 'string'
       }
     ];
   }
 
-  async run (context, field, id, query) {
+  async run (context, id, field, query) {
     if (field !== 'body') {
       throw new Error(`Invalid response field ${field}`);
     }

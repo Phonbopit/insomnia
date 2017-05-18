@@ -1,8 +1,17 @@
 import BaseExtension from './base/base-extension';
 
 export default class TimestampExtension extends BaseExtension {
-  getTagName () {
+  constructor () {
+    super();
+    this.deprecated = true;
+  }
+
+  getName () {
     return 'timestamp';
+  }
+
+  getDescription () {
+    return 'generate timestamp in milliseconds';
   }
 
   getArguments () {
